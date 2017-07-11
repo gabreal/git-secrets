@@ -136,7 +136,7 @@ do
 	echo "${line}" | grep -v '=' && continue
 
 	key="$(echo ${line} | cut -d '=' -f 1)"
-	value="$(echo ${line} | cut -d '=' -f 2- | tr -d "\"'")"
+	value="$(echo ${line} | sed -r "s/^[^=]+=[\"'](.*)[\"'][^\"']*$/'\1'/")"
 
 	case "${1}" in 
 		(decrypt)
@@ -158,7 +158,7 @@ do
 			fi
 			;;
 	esac
-	echo "${key}='${value}'"
+	echo "${key}=\"${value}\""
 done
 
 # vim: set tabstop=4 softtabstop=0 noexpandtab shiftwidth=4:
