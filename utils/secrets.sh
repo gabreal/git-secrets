@@ -136,7 +136,8 @@ do
 	echo "${line}" | grep -v '=' && continue
 
 	key="$(echo ${line} | cut -d '=' -f 1)"
-	value="$(echo ${line} | sed -r "s/^[^=]+=[\"'](.*)[\"'][^\"']*$/'\1'/")"
+	value="$(echo "${line}" | cut -d '=' -f 2- | sed -e 's/^["\x27]//' -e 's/["\x27]$//')"
+	echo "${line} ||| ${value}" >&2
 
 	case "${1}" in 
 		(decrypt)
