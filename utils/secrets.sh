@@ -97,7 +97,11 @@ case "${1}" in
 			echo
 		else
 			echo "decrypting ${SECRETS_FILE} s now ..."
-			find . -wholename "*${SECRETS_FILE}*" -exec git checkout '{}' \; -print
+			find . -wholename "*${SECRETS_FILE}*" -print | while read file
+				do
+					grep -q '^GITENC_' "${file}" && rm -vf "${file}"
+					git checkout --progress "${file}"
+				done
 		fi
 
 		exit 0
