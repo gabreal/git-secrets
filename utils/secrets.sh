@@ -100,7 +100,7 @@ case "${1}" in
 			find . -wholename "*${SECRETS_FILE}*" -print | while read file
 				do
 					grep -q '^GITENC_' "${file}" && rm -vf "${file}"
-					git checkout --progress "${file}"
+					git checkout "${file}"
 				done
 		fi
 
