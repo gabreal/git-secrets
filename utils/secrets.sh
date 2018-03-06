@@ -1,16 +1,19 @@
-#!/bin/sh
+#!/bin/sh -e
 #
 # tested with:
-# - openssl (1.1.0f-3, 1.0.1f-1ubuntu2.22)
-# - bash 4.4-5
-# - dash 0.5.8-2.4
+# - openssl (1.1.0g, 1.1.0f-3, 1.0.1f-1ubuntu2.22)
+# - bash (4.4-5)
+# - dash (0.5.8-2.4, 0.5.8-2.10)
+# - zsh  (5.4.2-3)
 #
+# git-secrets
 # 
-# TODO:
-# -
-
-# in order to initialize transparent secrets handling do the following
-# instructions:
+# initialization of transparent secrets handling:
+# - either set up ENCRYPTION_KEY environment variable and run
+#   ./utils/secrets.sh init
+# - or run ./utils/secrets.sh init ${ENCRYPTION_KEY}
+# the latter one will store the key in .git/config for further usage
+ 
 
 
 SECRETS_FILE="secrets.file"
@@ -18,9 +21,9 @@ ENCRYPTION_KEY_VAR="ENCRYPTION_KEY"
 
 ENCRYPTION_KEY="$(eval echo \${${ENCRYPTION_KEY_VAR}})"
 
+EQ="="
 
-
-case "${1}" in 
+case "${1}" in
 	(''|help|--help)
 
 		cat <<-EOF
@@ -67,15 +70,16 @@ case "${1}" in
 
 		;;
 	(init)
-		git config filter.encryptionmagic.smudge './utils/secrets.sh decrypt'
-		git config filter.encryptionmagic.clean './utils/secrets.sh encrypt'
-		git config diff.encryptionmagic.textconv cat
 
 		if [ ! -d .git ]
 		then
 			echo "Please run again from the top-level of the repository for init to be complete."
 			exit 1
 		fi
+
+		git config filter.encryptionmagic.smudge './utils/secrets.sh decrypt'
+		git config filter.encryptionmagic.clean './utils/secrets.sh encrypt'
+		git config diff.encryptionmagic.textconv cat
 
 		if [ ! -r .gitattributes ] || ! grep -q "${SECRETS_FILE}" .gitattributes
 		then
@@ -139,15 +143,23 @@ do
 	echo "${line}" | grep -E '^ *#' && continue
 	echo "${line}" | grep -v '=' && continue
 
-	key="$(echo ${line} | cut -d '=' -f 1)"
-	value="$(echo "${line}" | cut -d '=' -f 2- | sed -e 's/^["\x27]//' -e 's/["\x27]$//')"
+	key="$(echo -n "${line}" | sed -r 's/^([^ =]+)[ =]+.*$/\1/')"
+	value="$(echo -n "${line}" | sed -r 's/^[^ =]+[ =]+["\x27](.*)["\x27] *$/\1/')"
+
+	test "${DEBUG}" && echo "${1}: ${key}=${EQ}=\"${value}\"" >&2
+
+	if [ -z "${value}" ]
+	then
+		echo "# ERROR: malformed ${SECRETS_FILE} at key ${key}" >&2
+		exit 1
+	fi
 
 	case "${1}" in 
 		(decrypt)
 			if [ "${key}" != "${key#GITENC_}" ]
 			then
 				key="${key#GITENC_}"
-				value="$(echo ${value}  | openssl enc -d -base64 -A -aes-256-cbc -md sha256 -nosalt -k ${ENCRYPTION_KEY})"
+				value="$(echo -n "${value}" | openssl enc -d -base64 -A -aes-256-cbc -md sha256 -nosalt -k ${ENCRYPTION_KEY})"
 			else
 				echo "# INFO: double-decryption attempt"
 			fi
@@ -156,13 +168,20 @@ do
 			if [ "${key}" = "${key#GITENC_}" ]
 			then
 				key="GITENC_${key}"
-				value="$(echo ${value}  | openssl enc -e -base64 -A -aes-256-cbc -md sha256 -nosalt -k ${ENCRYPTION_KEY})"
+				value="$(echo -n "${value}" | openssl enc -e -base64 -A -aes-256-cbc -md sha256 -nosalt -k ${ENCRYPTION_KEY})"
 			else
 				echo "# INFO: double-encryption attempt"
 			fi
 			;;
 	esac
-	echo "${key}=\"${value}\""
+
+	if [ -z "${value}" ]
+	then
+		echo "# ERROR: empty value at key ${key}" >&2
+		exit 1
+	fi
+	test "${DEBUG}" && echo "${1}: ${key}=${EQ}=\"${value}\"" >&2
+	echo "${key}${EQ}\"${value}\""
 done
 
 # vim: set tabstop=4 softtabstop=0 noexpandtab shiftwidth=4:
