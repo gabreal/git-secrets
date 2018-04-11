@@ -58,7 +58,7 @@ case "${1}" in
 		The encryption key may either be provided as secondary argument to the
 		init command. Then it will be stored in .git/config and needs not
 		further be mentioned. Otherwise the encryption key can be provided via
-		environment variable ENCRYPTION_KEY.
+		environment variable ${ENCRYPTION_KEY_VAR}.
 
 
 		
@@ -97,7 +97,7 @@ case "${1}" in
 		if [ -z "${ENCRYPTION_KEY}" ]
 		then
 			echo
-			echo "> ENCRYPTION_KEY not set!"
+			echo "> ${ENCRYPTION_KEY_VAR} not set!"
 			echo
 		else
 			echo "decrypting ${SECRETS_FILE} s now ..."
@@ -127,7 +127,7 @@ then
 	then
 		ENCRYPTION_KEY="${gitkey}"
 	else
-		echo "ENCRYPTION_KEY not set" >&2
+		echo "${ENCRYPTION_KEY_VAR} not set" >&2
 		return 0
 	fi
 fi
@@ -161,7 +161,7 @@ do
 				key="${key#GITENC_}"
 				value="$(echo -n "${value}" | openssl enc -d -base64 -A -aes-256-cbc -md sha256 -nosalt -k ${ENCRYPTION_KEY})"
 			else
-				echo "# INFO: double-decryption attempt"
+				echo "# INFO: double-decryption attempt" >&2
 			fi
 			;;
 		(encrypt)
@@ -170,7 +170,7 @@ do
 				key="GITENC_${key}"
 				value="$(echo -n "${value}" | openssl enc -e -base64 -A -aes-256-cbc -md sha256 -nosalt -k ${ENCRYPTION_KEY})"
 			else
-				echo "# INFO: double-encryption attempt"
+				echo "# INFO: double-encryption attempt" >&2
 			fi
 			;;
 	esac
